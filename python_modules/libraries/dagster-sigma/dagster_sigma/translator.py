@@ -37,6 +37,7 @@ class SigmaWorkbook:
     properties: Dict[str, Any]
     datasets: AbstractSet[str]
     owner_email: Optional[str]
+    materialization_schedules: Optional[List[Dict[str, Any]]]
 
 
 @whitelist_for_serdes

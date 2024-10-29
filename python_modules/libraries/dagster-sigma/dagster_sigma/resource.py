@@ -18,12 +18,11 @@ from typing import (
     Sequence,
     Type,
     Union,
+    cast,
 )
 
 import aiohttp
 import dagster._check as check
-from dagster._core.definitions.events import AssetMaterialization
-from dagster._core.definitions.metadata.metadata_value import JsonMetadataValue
 import requests
 from aiohttp.client_exceptions import ClientResponseError
 from dagster import ConfigurableResource
@@ -31,9 +30,11 @@ from dagster._annotations import deprecated, public
 from dagster._core.definitions.asset_spec import AssetSpec
 from dagster._core.definitions.definitions_class import Definitions
 from dagster._core.definitions.definitions_load_context import StateBackedDefinitionsLoader
+from dagster._core.definitions.events import AssetMaterialization
+from dagster._core.definitions.metadata.metadata_value import JsonMetadataValue
 from dagster._utils.cached_method import cached_method
 from pydantic import Field, PrivateAttr
-from sqlglot import cast, exp, parse_one
+from sqlglot import exp, parse_one
 
 from dagster_sigma.translator import (
     DagsterSigmaTranslator,
@@ -128,6 +129,30 @@ class SigmaOrganization(ConfigurableResource):
                 response.raise_for_status()
                 return await response.json()
 
+    def _fetch_json(
+        self,
+        endpoint: str,
+        method: str = "GET",
+        query_params: Optional[Dict[str, Any]] = None,
+        json: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        url = f"{self.base_url}/v2/{endpoint}"
+        if query_params:
+            url = f"{url}?{urllib.parse.urlencode(query_params)}"
+
+        response = requests.request(
+            method=method,
+            url=f"{self.base_url}/v2/{endpoint}",
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {self.api_token}",
+                **SIGMA_PARTNER_ID_TAG,
+            },
+            json=json,
+        )
+        response.raise_for_status()
+        return response.json()
+
     async def _fetch_json_async_paginated_entries(
         self, endpoint: str, query_params: Optional[Dict[str, Any]] = None, limit: int = 1000
     ) -> List[Dict[str, Any]]:
@@ -201,32 +226,28 @@ class SigmaOrganization(ConfigurableResource):
             else:
                 raise
 
-    async def _begin_workbook_materialization(self, workbook_id: str, sheet_id: str) -> str:
-        output = await self._fetch_json_async(
+    def _begin_workbook_materialization(self, workbook_id: str, sheet_id: str) -> str:
+        output = self._fetch_json(
             f"workbooks/{workbook_id}/materializations",
             method="POST",
             json={"sheetId": sheet_id},
         )
         return output["materializationId"]
 
-    async def _fetch_materialization_status(
+    def _fetch_materialization_status(
         self, workbook_id: str, materialization_id: str
     ) -> Dict[str, Any]:
-        return await self._fetch_json_async(
-            f"workbooks/{workbook_id}/materializations/{materialization_id}"
-        )
+        return self._fetch_json(f"workbooks/{workbook_id}/materializations/{materialization_id}")
 
-    async def _run_materializations_for_workbook(
+    def _run_materializations_for_workbook(
         self, workbook_id: str, sheet_ids: AbstractSet[str]
     ) -> None:
         materialization_id_to_sheet = dict(
             zip(
-                await asyncio.gather(
-                    *[
-                        self._begin_workbook_materialization(workbook_id, sheet_id)
-                        for sheet_id in sheet_ids
-                    ]
-                ),
+                [
+                    self._begin_workbook_materialization(workbook_id, sheet_id)
+                    for sheet_id in sheet_ids
+                ],
                 sheet_ids,
             )
         )
@@ -236,12 +257,10 @@ class SigmaOrganization(ConfigurableResource):
         failed_sheets = set()
 
         while remaining_materializations:
-            materialization_statuses = await asyncio.gather(
-                *[
-                    self._fetch_materialization_status(workbook_id, materialization_id)
-                    for materialization_id in remaining_materializations
-                ]
-            )
+            materialization_statuses = [
+                self._fetch_materialization_status(workbook_id, materialization_id)
+                for materialization_id in remaining_materializations
+            ]
             for status in materialization_statuses:
                 if status["status"] not in ("pending", "building"):
                     remaining_materializations.remove(status["materializationId"])
@@ -285,7 +304,7 @@ class SigmaOrganization(ConfigurableResource):
 
         materialization_sheets = {schedule["sheetId"] for schedule in materialization_schedules}
 
-        asyncio.run(self._run_materializations_for_workbook(workbook_id, materialization_sheets))
+        self._run_materializations_for_workbook(workbook_id, materialization_sheets)
         yield (AssetMaterialization(asset_key=workbook_spec.key))
 
     @cached_method
@@ -411,6 +430,14 @@ class SigmaOrganization(ConfigurableResource):
         members = (await self._fetch_json_async("members", query_params={"limit": 500}))["entries"]
         return {member["memberId"]: member["email"] for member in members}
 
+    @cached_method
+    async def _fetch_materialization_schedules_for_workbook(
+        self, workbook_id: str
+    ) -> List[Dict[str, Any]]:
+        return await self._fetch_json_async_paginated_entries(
+            f"workbooks/{workbook_id}/materialization-schedules"
+        )
+
     async def load_workbook_data(self, raw_workbook_data: Dict[str, Any]) -> SigmaWorkbook:
         workbook_deps = set()
 
@@ -450,10 +477,15 @@ class SigmaOrganization(ConfigurableResource):
                 if item.get("type") == "dataset":
                     workbook_deps.add(item["nodeId"])
 
+        materialization_schedules = await self._fetch_materialization_schedules_for_workbook(
+            raw_workbook_data["workbookId"]
+        )
+
         return SigmaWorkbook(
             properties=raw_workbook_data,
             datasets=workbook_deps,
             owner_email=None,
+            materialization_schedules=materialization_schedules,
         )
 
     @cached_method
