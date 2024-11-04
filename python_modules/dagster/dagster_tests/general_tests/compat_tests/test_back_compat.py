@@ -1224,6 +1224,9 @@ def test_add_backfill_id_column():
             # exclude_subruns filter works before migration
             assert len(instance.get_runs(filters=RunsFilter(exclude_subruns=True))) == 2
 
+            # index does not exist
+            assert "idx_runs_by_backfill_id" not in get_sqlite3_indexes(db_path, "runs")
+
             instance.upgrade()
             assert instance.run_storage.has_built_index(RUN_BACKFILL_ID)
 
@@ -1276,6 +1279,8 @@ def test_add_backfill_id_column():
             # exclude_subruns filter works after migration, but should use new column
             assert len(instance.get_runs(filters=RunsFilter(exclude_subruns=True))) == 3
 
+            assert "idx_runs_by_backfill_id" in get_sqlite3_indexes(db_path, "runs")
+
             # test downgrade
             instance._run_storage._alembic_downgrade(rev="284a732df317")
 
@@ -1298,24 +1303,11 @@ def test_add_backfill_id_column():
             } == set(columns)
             assert "backfill_id" not in columns
 
-
-def test_add_runs_by_backfill_id_idx():
-    src_dir = file_relative_path(
-        __file__, "snapshot_1_8_12_pre_add_backfill_id_column_to_runs_table/sqlite"
-    )
-
-    with copy_directory(src_dir) as test_dir:
-        db_path = os.path.join(test_dir, "history", "runs.db")
-        with DagsterInstance.from_ref(InstanceRef.from_dir(test_dir)) as instance:
             assert "idx_runs_by_backfill_id" not in get_sqlite3_indexes(db_path, "runs")
-            instance.upgrade()
-            assert "idx_runs_by_backfill_id" in get_sqlite3_indexes(db_path, "runs")
 
 
 def test_add_backfill_tags():
-    src_dir = file_relative_path(
-        __file__, "snapshot_1_8_12_pre_add_backfill_id_column_to_runs_table/sqlite"
-    )
+    src_dir = file_relative_path(__file__, "snapshot_1_8_12_pre_add_backfill_tags/sqlite")
 
     with copy_directory(src_dir) as test_dir:
         db_path = os.path.join(test_dir, "history", "runs.db")
