@@ -14,6 +14,7 @@ from dagster._serdes.serdes import (
     serialize_value as serialize_value,
     unpack_value as unpack_value,
     whitelist_for_serdes as whitelist_for_serdes,
+    get_storage_name as get_storage_name,
 )
 from dagster._serdes.utils import (
     create_snapshot_id as create_snapshot_id,
