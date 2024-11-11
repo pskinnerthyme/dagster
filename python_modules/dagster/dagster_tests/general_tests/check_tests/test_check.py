@@ -2,22 +2,18 @@ import collections.abc
 import re
 import sys
 from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from typing import (
     TYPE_CHECKING,
     AbstractSet,
+    Annotated,
     Any,
     Callable,
-    Dict,
     Generic,
-    Iterable,
     List,
     Literal,
-    Mapping,
     Optional,
-    Sequence,
-    Set,
-    Type,
     TypeVar,
     Union,
 )
@@ -34,8 +30,6 @@ from dagster._check import (
     ParameterCheckError,
     build_check_call_str,
 )
-from dagster._record import record
-from typing_extensions import Annotated
 
 if TYPE_CHECKING:
     from dagster._core.test_utils import TestType  # used in lazy import ForwardRef test case
@@ -1111,15 +1105,13 @@ def test_opt_set_param():
 # ########################
 
 
-@record
-class SomeRecord: ...
-
-
 def test_sequence_param():
     assert check.sequence_param([], "sequence_param") == []
     assert check.sequence_param(tuple(), "sequence_param") == tuple()
 
     assert check.sequence_param(["foo"], "sequence_param", of_type=str) == ["foo"]
+    assert check.sequence_param("foo", "sequence_param") == "foo"
+    assert check.sequence_param("foo", "sequence_param", of_type=str) == "foo"
 
     with pytest.raises(ParameterCheckError):
         check.sequence_param(None, "sequence_param")
@@ -1130,21 +1122,14 @@ def test_sequence_param():
     with pytest.raises(CheckError):
         check.sequence_param(["foo"], "sequence_param", of_type=int)
 
-    with pytest.raises(CheckError):
-        check.sequence_param("foo", "sequence_param")
-
-    with pytest.raises(CheckError, match="str is a disallowed Sequence type"):
-        check.sequence_param("foo", "sequence_param", of_type=str)
-
-    with pytest.raises(CheckError):
-        check.sequence_param(SomeRecord(), "sequence_param")
-
 
 def test_opt_sequence_param():
     assert check.opt_sequence_param([], "sequence_param") == []
     assert check.opt_sequence_param(tuple(), "sequence_param") == tuple()
 
     assert check.opt_sequence_param(["foo"], "sequence_param", of_type=str) == ["foo"]
+    assert check.opt_sequence_param("foo", "sequence_param") == "foo"
+    assert check.opt_sequence_param("foo", "sequence_param", of_type=str) == "foo"
 
     assert check.opt_sequence_param(None, "sequence_param") == []
 
@@ -1154,21 +1139,14 @@ def test_opt_sequence_param():
     with pytest.raises(CheckError):
         check.opt_sequence_param(["foo"], "sequence_param", of_type=int)
 
-    with pytest.raises(CheckError):
-        check.opt_sequence_param("foo", "sequence_param")
-
-    with pytest.raises(CheckError, match="str is a disallowed Sequence type"):
-        check.opt_sequence_param("foo", "sequence_param", of_type=str)
-
-    with pytest.raises(CheckError):
-        check.opt_sequence_param(SomeRecord(), "sequence_param")
-
 
 def test_opt_nullable_sequence_param():
     assert check.opt_nullable_sequence_param([], "sequence_param") == []
     assert check.opt_nullable_sequence_param(tuple(), "sequence_param") == tuple()
 
     assert check.opt_nullable_sequence_param(["foo"], "sequence_param", of_type=str) == ["foo"]
+    assert check.opt_nullable_sequence_param("foo", "sequence_param") == "foo"
+    assert check.opt_nullable_sequence_param("foo", "sequence_param", of_type=str) == "foo"
 
     assert check.opt_nullable_sequence_param(None, "sequence_param") is None
 
@@ -1177,12 +1155,6 @@ def test_opt_nullable_sequence_param():
 
     with pytest.raises(CheckError):
         check.opt_nullable_sequence_param(["foo"], "sequence_param", of_type=int)
-
-    with pytest.raises(CheckError, match="str is a disallowed Sequence type"):
-        assert check.opt_nullable_sequence_param("foo", "sequence_param", of_type=str)
-
-    with pytest.raises(CheckError):
-        check.opt_nullable_sequence_param(SomeRecord(), "sequence_param")
 
 
 # ########################
@@ -1368,13 +1340,10 @@ def test_is_tuple():
     with pytest.raises(CheckError, match="Did you pass a class"):
         check.is_tuple((str,), of_type=int)
 
-    with pytest.raises(CheckError):
-        check.is_tuple(SomeRecord())
-
 
 def test_tuple_elem():
     tuple_value = ("blah", "blahblah")
-    ddict = {"tuplekey": tuple_value, "stringkey": "A", "nonekey": None, "reckey": SomeRecord()}
+    ddict = {"tuplekey": tuple_value, "stringkey": "A", "nonekey": None}
 
     assert check.tuple_elem(ddict, "tuplekey") == tuple_value
     assert check.tuple_elem(ddict, "tuplekey", of_type=str) == tuple_value
@@ -1391,13 +1360,10 @@ def test_tuple_elem():
     with pytest.raises(CheckError):
         check.tuple_elem(ddict, "tuplekey", of_type=int)
 
-    with pytest.raises(CheckError):
-        check.tuple_elem(ddict, "reckey")
-
 
 def test_opt_tuple_elem():
     tuple_value = ("blah", "blahblah")
-    ddict = {"tuplekey": tuple_value, "stringkey": "A", "nonekey": None, "reckey": SomeRecord()}
+    ddict = {"tuplekey": tuple_value, "stringkey": "A", "nonekey": None}
 
     assert check.opt_tuple_elem(ddict, "tuplekey") == tuple_value
     assert check.opt_tuple_elem(ddict, "tuplekey", of_type=str) == tuple_value
@@ -1409,9 +1375,6 @@ def test_opt_tuple_elem():
 
     with pytest.raises(CheckError):
         check.opt_tuple_elem(ddict, "tuplekey", of_type=int)
-
-    with pytest.raises(CheckError):
-        check.opt_tuple_elem(ddict, "reckey")
 
 
 def test_typed_is_tuple():
@@ -1521,8 +1484,7 @@ def test_iterable():
     assert check.iterable_param((i for i in [1, 2]), "thisisfine") != [1, 2]
     assert list(check.iterable_param((i for i in [1, 2]), "thisisfine")) == [1, 2]
 
-    with pytest.raises(CheckError, match="Iterable.*str"):
-        check.iterable_param("lkjsdkf", "stringisiterable")
+    check.iterable_param("lkjsdkf", "stringisiterable")
 
     with pytest.raises(CheckError, match="Iterable.*None"):
         check.iterable_param(None, "nonenotallowed")
@@ -1539,9 +1501,6 @@ def test_iterable():
     with pytest.raises(CheckError, match="Member of iterable mismatches type"):
         check.iterable_param(["atr", None], "nonedoesntcount", of_type=str)
 
-    with pytest.raises(CheckError):
-        check.iterable_param(SomeRecord(), "nonenotallowed")
-
 
 def test_opt_iterable():
     assert check.opt_iterable_param(None, "thisisfine") == []
@@ -1556,10 +1515,8 @@ def test_opt_iterable():
         2,
     ]
 
+    check.opt_iterable_param("lkjsdkf", "stringisiterable")
     check.opt_iterable_param(None, "noneisallowed")
-
-    with pytest.raises(CheckError, match="Iterable.*str"):
-        check.opt_iterable_param("lkjsdkf", "stringisiterable")
 
     with pytest.raises(CheckError, match="Iterable.*int"):
         check.opt_iterable_param(1, "intnotallowed")
@@ -1572,9 +1529,6 @@ def test_opt_iterable():
 
     with pytest.raises(CheckError, match="Member of iterable mismatches type"):
         check.opt_iterable_param(["atr", None], "nonedoesntcount", of_type=str)
-
-    with pytest.raises(CheckError):
-        check.opt_iterable_param(SomeRecord(), "nonenotallowed")
 
 
 def test_is_iterable() -> None:
@@ -1656,10 +1610,10 @@ BUILD_CASES = [
     (str, ["hi"], [Foo()]),
     (Bar, [Bar()], [Foo()]),
     (Optional[Bar], [Bar()], [Foo()]),
-    (List[str], [["a", "b"]], [[1, 2]]),
-    (Sequence[str], [["a", "b"]], [[1, 2], "just_a_string"]),
+    (list[str], [["a", "b"]], [[1, 2]]),
+    (Sequence[str], [["a", "b"]], [[1, 2]]),
     (Iterable[str], [["a", "b"]], [[1, 2]]),
-    (Set[str], [{"a", "b"}], [{1, 2}]),
+    (set[str], [{"a", "b"}], [{1, 2}]),
     (AbstractSet[str], [{"a", "b"}], [{1, 2}]),
     (Optional[AbstractSet[str]], [{"a", "b"}, None], [{1, 2}]),
     (
@@ -1674,23 +1628,23 @@ BUILD_CASES = [
             {"letters": ["a", "b"]},
         ],
     ),
-    (Dict[str, int], [{"a": 1}], [{1: "a"}]),
+    (dict[str, int], [{"a": 1}], [{1: "a"}]),
     (Mapping[str, int], [{"a": 1}], [{1: "a"}]),
     (Optional[int], [None], ["4"]),
     (Optional[Bar], [None], [Foo()]),
-    (Optional[List[str]], [["a", "b"]], [[1, 2]]),
+    (Optional[list[str]], [["a", "b"]], [[1, 2]]),
     (Optional[Sequence[str]], [["a", "b"]], [[1, 2]]),
     (Optional[Iterable[str]], [["a", "b"]], [[1, 2]]),
-    (Optional[Set[str]], [{"a", "b"}], [{1, 2}]),
-    (Optional[Dict[str, int]], [{"a": 1}], [{1: "a"}]),
+    (Optional[set[str]], [{"a", "b"}], [{1, 2}]),
+    (Optional[dict[str, int]], [{"a": 1}], [{1: "a"}]),
     (Optional[Mapping[str, int]], [{"a": 1}], [{1: "a"}]),
     (PublicAttr[Optional[Mapping[str, int]]], [{"a": 1}], [{1: "a"}]),  # type: ignore  # ignored for update, fix me!
     (PublicAttr[Bar], [Bar()], [Foo()]),  # type: ignore  # ignored for update, fix me!
     (Annotated[Bar, None], [Bar()], [Foo()]),
     (Annotated["Bar", None], [Bar()], [Foo()]),
-    (List[Annotated[Bar, None]], [[Bar()], []], [[Foo()]]),
+    (list[Annotated[Bar, None]], [[Bar()], []], [[Foo()]]),
     (
-        List[Annotated["TestType", ImportFrom("dagster._core.test_utils")]],
+        list[Annotated["TestType", ImportFrom("dagster._core.test_utils")]],
         [[]],  # avoid importing TestType
         [[Foo()]],
     ),
@@ -1719,7 +1673,7 @@ BUILD_CASES = [
 
 @pytest.mark.parametrize("ttype, should_succeed, should_fail", BUILD_CASES)
 def test_build_check_call(
-    ttype: Type, should_succeed: Sequence[object], should_fail: Sequence[object]
+    ttype: type, should_succeed: Sequence[object], should_fail: Sequence[object]
 ) -> None:
     eval_ctx = EvalContext(globals(), locals(), {})
     check_call = build_check_call(ttype, "test_param", eval_ctx)
@@ -1744,7 +1698,7 @@ def test_build_check_errors() -> None:
 def test_forward_ref_flow() -> None:
     # original context captured at decl
     eval_ctx = EvalContext(globals(), locals(), {})
-    ttype = List["Late"]  # class not yet defined
+    ttype = list["Late"]  # class not yet defined
 
     class Late: ...
 

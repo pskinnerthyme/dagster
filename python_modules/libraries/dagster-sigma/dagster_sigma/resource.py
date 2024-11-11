@@ -3,21 +3,10 @@ import contextlib
 import urllib.parse
 import warnings
 from collections import defaultdict
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
-from typing import (
-    AbstractSet,
-    Any,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Type,
-    Union,
-)
+from typing import AbstractSet, Any, Callable, Optional, Union
 
 import aiohttp
 import dagster._check as check
@@ -30,7 +19,6 @@ from dagster._core.definitions.definitions_class import Definitions
 from dagster._core.definitions.definitions_load_context import StateBackedDefinitionsLoader
 from dagster._record import IHaveNew, record_custom
 from dagster._utils.cached_method import cached_method
-from dagster._utils.log import get_dagster_logger
 from pydantic import Field, PrivateAttr
 from sqlglot import exp, parse_one
 
@@ -43,8 +31,6 @@ from dagster_sigma.translator import (
 )
 
 SIGMA_PARTNER_ID_TAG = {"X-Sigma-Partner-Id": "dagster"}
-
-logger = get_dagster_logger("dagster_sigma")
 
 
 @record_custom
@@ -128,8 +114,8 @@ class SigmaOrganization(ConfigurableResource):
         self,
         endpoint: str,
         method: str = "GET",
-        query_params: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        query_params: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         url = f"{self.base_url}/v2/{endpoint}"
         if query_params:
             url = f"{url}?{urllib.parse.urlencode(query_params)}"
@@ -148,24 +134,16 @@ class SigmaOrganization(ConfigurableResource):
                 return await response.json()
 
     async def _fetch_json_async_paginated_entries(
-        self, endpoint: str, query_params: Optional[Dict[str, Any]] = None, limit: int = 1000
-    ) -> List[Dict[str, Any]]:
+        self, endpoint: str, query_params: Optional[dict[str, Any]] = None, limit: int = 1000
+    ) -> list[dict[str, Any]]:
         entries = []
 
         query_params_with_limit = {
             **(query_params or {}),
             "limit": limit,
         }
-
-        result = await self._fetch_json_async(endpoint, query_params=query_params_with_limit)
+        result = await self._fetch_json_async(endpoint, query_params=query_params)
         entries.extend(result["entries"])
-        logger.debug(
-            "Fetched %s\n  Query params %s\n  Received %s entries%s",
-            endpoint,
-            query_params_with_limit,
-            len(entries),
-            ", fetching additional results" if result.get("hasMore") else "",
-        )
 
         while result.get("hasMore"):
             next_page = result["nextPage"]
@@ -177,37 +155,31 @@ class SigmaOrganization(ConfigurableResource):
                 endpoint, query_params=query_params_with_limit_and_page
             )
             entries.extend(result["entries"])
-            logger.debug(
-                "Fetched %s\n  Query params %s\n  Received %s entries%s",
-                endpoint,
-                query_params_with_limit_and_page,
-                len(result["entries"]),
-                ", fetching additional results" if result.get("hasMore") else "",
-            )
+
         return entries
 
     @cached_method
-    async def _fetch_workbooks(self) -> List[Dict[str, Any]]:
+    async def _fetch_workbooks(self) -> list[dict[str, Any]]:
         return await self._fetch_json_async_paginated_entries("workbooks")
 
     @cached_method
-    async def _fetch_datasets(self) -> List[Dict[str, Any]]:
+    async def _fetch_datasets(self) -> list[dict[str, Any]]:
         return await self._fetch_json_async_paginated_entries("datasets")
 
     @cached_method
-    async def _fetch_pages_for_workbook(self, workbook_id: str) -> List[Dict[str, Any]]:
+    async def _fetch_pages_for_workbook(self, workbook_id: str) -> list[dict[str, Any]]:
         return await self._fetch_json_async_paginated_entries(f"workbooks/{workbook_id}/pages")
 
     @cached_method
     async def _fetch_elements_for_page(
         self, workbook_id: str, page_id: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return await self._fetch_json_async_paginated_entries(
             f"workbooks/{workbook_id}/pages/{page_id}/elements"
         )
 
     @cached_method
-    async def _fetch_lineage_for_element(self, workbook_id: str, element_id: str) -> Dict[str, Any]:
+    async def _fetch_lineage_for_element(self, workbook_id: str, element_id: str) -> dict[str, Any]:
         return await self._fetch_json_async(
             f"workbooks/{workbook_id}/lineage/elements/{element_id}"
         )
@@ -215,13 +187,13 @@ class SigmaOrganization(ConfigurableResource):
     @cached_method
     async def _fetch_columns_for_element(
         self, workbook_id: str, element_id: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         return (
             await self._fetch_json_async(f"workbooks/{workbook_id}/elements/{element_id}/columns")
         )["entries"]
 
     @cached_method
-    async def _fetch_queries_for_workbook(self, workbook_id: str) -> List[Dict[str, Any]]:
+    async def _fetch_queries_for_workbook(self, workbook_id: str) -> list[dict[str, Any]]:
         return (await self._fetch_json_async(f"workbooks/{workbook_id}/queries"))["entries"]
 
     @contextlib.contextmanager
@@ -242,12 +214,9 @@ class SigmaOrganization(ConfigurableResource):
         """
         deps_by_dataset_inode = defaultdict(set)
 
-        logger.debug("Fetching dataset dependencies")
-
         raw_workbooks = await self._fetch_workbooks()
 
-        async def process_workbook(workbook: Dict[str, Any]) -> None:
-            logger.info("Inferring dataset dependencies for workbook %s", workbook["workbookId"])
+        async def process_workbook(workbook: dict[str, Any]) -> None:
             queries = await self._fetch_queries_for_workbook(workbook["workbookId"])
             queries_by_element_id = defaultdict(list)
             for query in queries:
@@ -261,7 +230,7 @@ class SigmaOrganization(ConfigurableResource):
                 ]
             )
 
-            async def build_deps_from_element(element: Dict[str, Any]) -> None:
+            async def build_deps_from_element(element: dict[str, Any]) -> None:
                 # We extract the list of dataset dependencies from the lineage of each element
                 # If there is a single dataset dependency, we can then know the queries for that element
                 # are associated with that dataset
@@ -318,8 +287,7 @@ class SigmaOrganization(ConfigurableResource):
 
         workbooks = await self._fetch_workbooks()
 
-        async def process_workbook(workbook: Dict[str, Any]) -> None:
-            logger.info("Fetching column data from workbook %s", workbook["workbookId"])
+        async def process_workbook(workbook: dict[str, Any]) -> None:
             pages = await self._fetch_pages_for_workbook(workbook["workbookId"])
             elements = [
                 element
@@ -361,10 +329,8 @@ class SigmaOrganization(ConfigurableResource):
         members = (await self._fetch_json_async("members", query_params={"limit": 500}))["entries"]
         return {member["memberId"]: member["email"] for member in members}
 
-    async def load_workbook_data(self, raw_workbook_data: Dict[str, Any]) -> SigmaWorkbook:
+    async def load_workbook_data(self, raw_workbook_data: dict[str, Any]) -> SigmaWorkbook:
         workbook_deps = set()
-
-        logger.info("Fetching data for workbook %s", raw_workbook_data["workbookId"])
 
         pages = await self._fetch_pages_for_workbook(raw_workbook_data["workbookId"])
         elements = [
@@ -380,7 +346,7 @@ class SigmaOrganization(ConfigurableResource):
 
         async def safe_fetch_lineage_for_element(
             workbook_id: str, element_id: str
-        ) -> Dict[str, Any]:
+        ) -> dict[str, Any]:
             with self.try_except_http_warn(
                 self.warn_on_lineage_fetch_error,
                 f"Failed to fetch lineage for element {element_id} in workbook {workbook_id}",
@@ -410,14 +376,13 @@ class SigmaOrganization(ConfigurableResource):
 
     @cached_method
     async def build_organization_data(
-        self, sigma_filter: Optional[SigmaFilter], fetch_column_data: bool
+        self, sigma_filter: Optional[SigmaFilter]
     ) -> SigmaOrganizationData:
         """Retrieves all workbooks and datasets in the Sigma organization and builds a
         SigmaOrganizationData object representing the organization's assets.
         """
         _sigma_filter = sigma_filter or SigmaFilter()
 
-        logger.info("Beginning Sigma organization data fetch")
         raw_workbooks = await self._fetch_workbooks()
         workbooks_to_fetch = []
         if _sigma_filter.workbook_folders:
@@ -433,18 +398,14 @@ class SigmaOrganization(ConfigurableResource):
         else:
             workbooks_to_fetch = raw_workbooks
 
-        workbooks: List[SigmaWorkbook] = await asyncio.gather(
+        workbooks: list[SigmaWorkbook] = await asyncio.gather(
             *[self.load_workbook_data(workbook) for workbook in workbooks_to_fetch]
         )
 
-        datasets: List[SigmaDataset] = []
+        datasets: list[SigmaDataset] = []
         deps_by_dataset_inode = await self._fetch_dataset_upstreams_by_inode()
+        columns_by_dataset_inode = await self._fetch_dataset_columns_by_inode()
 
-        columns_by_dataset_inode = (
-            await self._fetch_dataset_columns_by_inode() if fetch_column_data else {}
-        )
-
-        logger.info("Fetching dataset data")
         for dataset in await self._fetch_datasets():
             inode = _inode_from_url(dataset["url"])
             datasets.append(
@@ -464,9 +425,8 @@ class SigmaOrganization(ConfigurableResource):
     )
     def build_defs(
         self,
-        dagster_sigma_translator: Type[DagsterSigmaTranslator] = DagsterSigmaTranslator,
+        dagster_sigma_translator: type[DagsterSigmaTranslator] = DagsterSigmaTranslator,
         sigma_filter: Optional[SigmaFilter] = None,
-        fetch_column_data: bool = True,
     ) -> Definitions:
         """Returns a Definitions object representing the Sigma content in the organization.
 
@@ -478,9 +438,7 @@ class SigmaOrganization(ConfigurableResource):
             Definitions: The set of assets representing the Sigma content in the organization.
         """
         return Definitions(
-            assets=load_sigma_asset_specs(
-                self, dagster_sigma_translator, sigma_filter, fetch_column_data
-            )
+            assets=load_sigma_asset_specs(self, dagster_sigma_translator, sigma_filter)
         )
 
 
@@ -491,16 +449,11 @@ def load_sigma_asset_specs(
         [SigmaOrganizationData], DagsterSigmaTranslator
     ] = DagsterSigmaTranslator,
     sigma_filter: Optional[SigmaFilter] = None,
-    fetch_column_data: bool = True,
 ) -> Sequence[AssetSpec]:
     """Returns a list of AssetSpecs representing the Sigma content in the organization.
 
     Args:
         organization (SigmaOrganization): The Sigma organization to fetch assets from.
-        dagster_sigma_translator (Callable[[SigmaOrganizationData], DagsterSigmaTranslator]): The translator to use
-            to convert Sigma content into AssetSpecs. Defaults to DagsterSigmaTranslator.
-        sigma_filter (Optional[SigmaFilter]): Filters the set of Sigma objects to fetch.
-        fetch_column_data (bool): Whether to fetch column data for datasets, which can be slow.
 
     Returns:
         List[AssetSpec]: The set of assets representing the Sigma content in the organization.
@@ -511,7 +464,6 @@ def load_sigma_asset_specs(
                 organization=initialized_organization,
                 translator_cls=dagster_sigma_translator,
                 sigma_filter=sigma_filter,
-                fetch_column_data=fetch_column_data,
             )
             .build_defs()
             .assets,
@@ -537,7 +489,6 @@ class SigmaOrganizationDefsLoader(StateBackedDefinitionsLoader[SigmaOrganization
     organization: SigmaOrganization
     translator_cls: Callable[[SigmaOrganizationData], DagsterSigmaTranslator]
     sigma_filter: Optional[SigmaFilter] = None
-    fetch_column_data: bool = True
 
     @property
     def defs_key(self) -> str:
@@ -545,9 +496,7 @@ class SigmaOrganizationDefsLoader(StateBackedDefinitionsLoader[SigmaOrganization
 
     def fetch_state(self) -> SigmaOrganizationData:
         return asyncio.run(
-            self.organization.build_organization_data(
-                sigma_filter=self.sigma_filter, fetch_column_data=self.fetch_column_data
-            )
+            self.organization.build_organization_data(sigma_filter=self.sigma_filter)
         )
 
     def defs_from_state(self, state: SigmaOrganizationData) -> Definitions:

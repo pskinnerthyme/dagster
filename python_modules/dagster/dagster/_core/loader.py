@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from functools import partial
-from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, Type, TypeVar
+from typing import TYPE_CHECKING, Generic, Optional, TypeVar
 
 from typing_extensions import Self
 
@@ -55,12 +56,14 @@ class LoadingContext(ABC):
 
     @property
     @abstractmethod
-    def loaders(self) -> Dict[Type, Tuple[DataLoader, BlockingDataLoader]]:
+    def loaders(self) -> dict[type, tuple[DataLoader, BlockingDataLoader]]:
         raise NotImplementedError()
 
-    def get_loaders_for(self, ttype: Type["LoadableBy"]) -> Tuple[DataLoader, BlockingDataLoader]:
+    def get_loaders_for(
+        self, ttype: type["InstanceLoadableBy"]
+    ) -> tuple[DataLoader, BlockingDataLoader]:
         if ttype not in self.loaders:
-            if not issubclass(ttype, LoadableBy):
+            if not issubclass(ttype, InstanceLoadableBy):
                 check.failed(f"{ttype} is not Loadable")
 
             batch_load_fn = partial(ttype._batch_load, context=self)  # noqa
@@ -81,7 +84,7 @@ class LoadingContext(ABC):
 # Expected there may be other "Loadable" base classes based on what is needed to load.
 
 
-class LoadableBy(ABC, Generic[TKey]):
+class InstanceLoadableBy(ABC, Generic[TKey]):
     """Make An object Loadable by ID of type TKey using a DagsterInstance."""
 
     @classmethod
@@ -150,5 +153,5 @@ class LoadingContextForTest(LoadingContext):
         return self._instance
 
     @property
-    def loaders(self) -> Dict[Type, Tuple[DataLoader, BlockingDataLoader]]:
+    def loaders(self) -> dict[type, tuple[DataLoader, BlockingDataLoader]]:
         return self._loaders

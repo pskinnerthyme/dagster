@@ -4,8 +4,9 @@ import logging
 import random
 import string
 import uuid
+from collections.abc import Mapping
 from copy import deepcopy
-from typing import Any, Mapping
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import mlflow
@@ -284,11 +285,13 @@ def test_setup(mock_atexit, context):
         # Given: a context  passed into the __init__ for MlFlow
         mlf = MlFlow(context)
 
-    with patch.object(
-        MlFlow, "_get_current_run_id", return_value="run_id_mock"
-    ) as mock_get_current_run_id, patch.object(
-        MlFlow, "_set_active_run"
-    ) as mock_set_active_run, patch.object(MlFlow, "_set_all_tags") as mock_set_all_tags:
+    with (
+        patch.object(
+            MlFlow, "_get_current_run_id", return_value="run_id_mock"
+        ) as mock_get_current_run_id,
+        patch.object(MlFlow, "_set_active_run") as mock_set_active_run,
+        patch.object(MlFlow, "_set_all_tags") as mock_set_all_tags,
+    ):
         # When _setup is called
         mlf._setup()  # noqa: SLF001
         # Then
@@ -311,11 +314,13 @@ def test_setup_with_passed_run_id(mock_atexit, context):
         # Given: a context  passed into the __init__ for MlFlow
         mlf = MlFlow(context)
 
-    with patch.object(
-        MlFlow, "_get_current_run_id", return_value="run_id_mock"
-    ) as mock_get_current_run_id, patch.object(
-        MlFlow, "_set_active_run"
-    ) as mock_set_active_run, patch.object(MlFlow, "_set_all_tags") as mock_set_all_tags:
+    with (
+        patch.object(
+            MlFlow, "_get_current_run_id", return_value="run_id_mock"
+        ) as mock_get_current_run_id,
+        patch.object(MlFlow, "_set_active_run") as mock_set_active_run,
+        patch.object(MlFlow, "_set_all_tags") as mock_set_all_tags,
+    ):
         # When _setup is called
         mlf._setup()  # noqa: SLF001
         # Then
