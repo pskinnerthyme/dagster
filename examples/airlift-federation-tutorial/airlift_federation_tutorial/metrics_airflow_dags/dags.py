@@ -14,6 +14,7 @@ from airlift_federation_tutorial.constants import (
     METRICS_SCHEMA,
     METRICS_TABLE_NAME,
 )
+from dagster._time import get_current_datetime_midnight
 
 
 def calculate_customer_count() -> None:
@@ -58,6 +59,7 @@ for dag_id in ["orders_metrics", "products_metrics", "payments_metrics", "sales_
     with DAG(
         dag_id=dag_id,
         is_paused_upon_creation=False,
+        start_date=get_current_datetime_midnight(),
     ) as dag:
         PythonOperator(
             task_id="task",
