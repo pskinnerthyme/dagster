@@ -70,27 +70,31 @@ Now to pull these assets into our definitions object, add them to the empty list
 
   ```python
   defs = dg.Definitions(
-    assets=[products,
-        sales_reps,
-        sales_data,
-    ],
-    resources={"duckdb": DuckDBResource(database="data/mydb.duckdb")}
-    ),
+      assets=[products,
+          sales_reps,
+          sales_data,
+      ],
+      resources={"duckdb": DuckDBResource(database="data/mydb.duckdb")},
+  )
   ```
 
 ## Materialize Assets
 
-Lets fire up Dagster and materialize these assets. If you are not in the project root directory navigate there now. 
+Let's fire up Dagster and materialize these assets. If you are not in the project root directory navigate there now. 
+
+  ```bash title="Navigate to Project Directory"
+    cd getting_started_etl_tutorial
+  ```
 
 Run the `dagster dev` command. Dagster should open up in your browser. Navigate to the Global asset lineage page. You should see this
 
-[screenshot of global asset lineage]
+   ![2048 resolution](/images/tutorial/etl-tutorial/etl-tutorial-first-asset-lineage.png)
 
-Click on products and then materilize. Navigate to the jobs screen. 
+Click on products and then materialize. Navigate to the runs tab and select the most recent run. 
 
-[screenshot of run]
+   ![2048 resolution](/images/tutorial/etl-tutorial/first-asset-run.png)
 
-Do the same for sales_reps, and sales_data. from 
+Do the same for sales_reps and sales_data. Now we have all our ingestion assets materialized
 
 ## What you've learned
 
@@ -100,4 +104,4 @@ Do the same for sales_reps, and sales_data. from
 
 ## Next steps
 
-- Continue this tutorial with your [Asset Dependencies](/tutorial/02-your-first-asset)
+- Continue this tutorial with your [Asset Dependencies and Checks](/tutorial/03-asset-dependencies-and-checks)
