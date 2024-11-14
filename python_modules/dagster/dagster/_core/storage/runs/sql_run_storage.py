@@ -219,6 +219,7 @@ class SqlRunStorage(RunStorage):
         if event.event_type == DagsterEventType.PIPELINE_FAILURE and isinstance(
             event.event_specific_data, JobFailureData
         ):
+            #
             failure_reason = event.event_specific_data.failure_reason
 
             if failure_reason and failure_reason != RunFailureReason.UNKNOWN:

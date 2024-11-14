@@ -47,6 +47,7 @@ from dagster._core.errors import (
     DagsterRunAlreadyExists,
     DagsterRunConflict,
 )
+from dagster._core.events import RunFailureReason
 from dagster._core.instance.config import (
     DAGSTER_CONFIG_YAML_FILENAME,
     DEFAULT_LOCAL_CODE_SERVER_STARTUP_TIMEOUT,
@@ -70,17 +71,22 @@ from dagster._core.storage.dagster_run import (
 from dagster._core.storage.tags import (
     ASSET_PARTITION_RANGE_END_TAG,
     ASSET_PARTITION_RANGE_START_TAG,
+    MAX_RETRIES_TAG,
     PARENT_RUN_ID_TAG,
     PARTITION_NAME_TAG,
     RESUME_RETRY_TAG,
+    RETRY_ON_ASSET_OR_OP_FAILURE_TAG,
     ROOT_RUN_ID_TAG,
+    RUN_FAILURE_REASON_TAG,
     TAGS_TO_OMIT_ON_RETRY,
+    WILL_RETRY_TAG,
 )
 from dagster._serdes import ConfigurableClass
 from dagster._time import get_current_datetime, get_current_timestamp
 from dagster._utils import PrintFn, is_uuid, traced
 from dagster._utils.error import serializable_error_info_from_exc_info
 from dagster._utils.merger import merge_dicts
+from dagster._utils.tags import get_boolean_tag_value
 from dagster._utils.warnings import disable_dagster_warnings, experimental_warning
 
 # 'airflow_execution_date' and 'is_airflow_ingest_pipeline' are hardcoded tags used in the
@@ -931,6 +937,10 @@ class DagsterInstance(DynamicPartitionsStore):
     @property
     def run_retries_max_retries(self) -> int:
         return self.get_settings("run_retries").get("max_retries", 0)
+
+    @property
+    def retry_on_asset_or_op_failure(self) -> bool:
+        return self.get_settings("run_retries").get("retry_on_asset_or_op_failure", True)
 
     @property
     def auto_materialize_enabled(self) -> bool:
@@ -2390,6 +2400,37 @@ class DagsterInstance(DynamicPartitionsStore):
     def store_event(self, event: "EventLogEntry") -> None:
         self._event_storage.store_event(event)
 
+    def _should_retry_run(self, run_id: str) -> bool:
+        run = self.get_run_by_id(run_id)
+        if run.status == DagsterRunStatus.FAILURE and self.run_retries_enabled:
+            max_retries = (
+                int(run.tags[MAX_RETRIES_TAG])
+                if run.tags.get(MAX_RETRIES_TAG) is not None
+                else self.run_retries_max_retries
+            )
+            if max_retries > 0:
+                run_group = self.get_run_group(run_id)
+                if run_group is not None:
+                    _, run_group_iter = run_group
+                    if len(list(run_group_iter)) < max_retries:
+                        retry_on_asset_or_op_failure = get_boolean_tag_value(
+                            run.tags.get(RETRY_ON_ASSET_OR_OP_FAILURE_TAG),
+                            default_value=self.retry_on_asset_or_op_failure,
+                        )
+                        if (
+                            run.tags.get(RUN_FAILURE_REASON_TAG)
+                            == RunFailureReason.STEP_FAILURE.value
+                            and not retry_on_asset_or_op_failure
+                        ):
+                            self.report_engine_event(
+                                "Not retrying run since it failed due to an asset or op failure and run retries "
+                                "are configured with retry_on_asset_or_op_failure set to false.",
+                                run,
+                            )
+                        else:
+                            return True
+        return False
+
     def handle_new_event(
         self,
         event: "EventLogEntry",
@@ -2447,9 +2488,10 @@ class DagsterInstance(DynamicPartitionsStore):
                 and event.get_dagster_event().is_job_event
             ):
                 self._run_storage.handle_run_event(run_id, event.get_dagster_event())
-
             for sub in self._subscribers[run_id]:
                 sub(event)
+
+        self.add_run_tags(run_id, {WILL_RETRY_TAG: self._should_retry_run(run_id)})
 
     def add_event_listener(self, run_id: str, cb) -> None:
         self._subscribers[run_id].append(cb)
