@@ -21,7 +21,7 @@ def filter_runs_to_should_retry(
     """Return only runs that should retry along with their retry number (1st retry, 2nd, etc.)."""
     for run in runs:
         if get_boolean_tag_value(run.tags.get(WILL_RETRY_TAG), default_value=False):
-            retry_number = run.tags.get(RETRY_NUMBER_TAG, 0) + 1
+            retry_number = int(run.tags.get(RETRY_NUMBER_TAG, "0")) + 1
             yield (run, retry_number)
 
 
