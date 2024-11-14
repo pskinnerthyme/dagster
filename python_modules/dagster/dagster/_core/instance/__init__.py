@@ -2403,7 +2403,7 @@ class DagsterInstance(DynamicPartitionsStore):
         from dagster._core.events import RunFailureReason
 
         run = self.get_run_by_id(run_id)
-        if run.status == DagsterRunStatus.FAILURE and self.run_retries_enabled:
+        if run and run.status == DagsterRunStatus.FAILURE and self.run_retries_enabled:
             max_retries = (
                 int(run.tags[MAX_RETRIES_TAG])
                 if run.tags.get(MAX_RETRIES_TAG) is not None
