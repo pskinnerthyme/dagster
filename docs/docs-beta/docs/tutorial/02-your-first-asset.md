@@ -8,7 +8,7 @@ last_update:
 
 # Your First Software Defined Asset
 
-Now that we have the raw data files and the Dagster project setup lets create some loading those csv's into duckdb. 
+Now that we have the raw data files and the Dagster project setup lets create some loading those csv's into DuckDB. 
 
 Asset definitions enable a declarative approach to data management, in which code is the source of truth on what data assets should exist and how those assets are computed.
 
@@ -17,14 +17,14 @@ Asset definitions enable a declarative approach to data management, in which cod
 ## What you'll learn
 
 - Creating our initial definitions object
-- Adding a duckdb resource
+- Adding a DuckDB resource
 - Building some basic software defined assets 
 
 ## Building definitions object
 
 The [definitions](/api/definitions) object in Dagster serves as the central configuration point for defining and organizing various components within a Dagster Project. It acts as a container that holds all the necessary configurations for a code location, ensuring that everything is organized and easily accessible. 
 
-1. Creating Definitions object and duckdb resource
+1. Creating Definitions object and DuckDB resource
 
 Open the definitions.py file and add the following import statements and definitions object. 
 

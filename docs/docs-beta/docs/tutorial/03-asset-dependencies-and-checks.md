@@ -23,7 +23,7 @@ The DAG or Directed Acyclic Graph is a key part of Dagster. This is an improveme
 
 ## Creating a Downstream asset
 
-Now that we have all of our raw data loaded and staged into the duckdb database our next step is to merge it together. The data structure that of a fact table (sales data) with 2 dimensions off of it (sales reps and products). To accomplish that in SQL we will bring in our sales_data table and then left join on sales reps and products on their respective id columns. Additionally, we will keep this view concise and only have relevant columns for analysis.
+Now that we have all of our raw data loaded and staged into the DuckDB database our next step is to merge it together. The data structure that of a fact table (sales data) with 2 dimensions off of it (sales reps and products). To accomplish that in SQL we will bring in our sales_data table and then left join on sales reps and products on their respective id columns. Additionally, we will keep this view concise and only have relevant columns for analysis.
 
 <CodeExample filePath="guides/tutorials/etl_tutorial/etl_tutorial/definitions.py" language="python" lineStart="89" lineEnd="132"/>
 
