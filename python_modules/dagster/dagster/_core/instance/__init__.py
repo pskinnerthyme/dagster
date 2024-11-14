@@ -47,7 +47,6 @@ from dagster._core.errors import (
     DagsterRunAlreadyExists,
     DagsterRunConflict,
 )
-from dagster._core.events import RunFailureReason
 from dagster._core.instance.config import (
     DAGSTER_CONFIG_YAML_FILENAME,
     DEFAULT_LOCAL_CODE_SERVER_STARTUP_TIMEOUT,
@@ -2401,6 +2400,8 @@ class DagsterInstance(DynamicPartitionsStore):
         self._event_storage.store_event(event)
 
     def _should_retry_run(self, run_id: str) -> bool:
+        from dagster._core.events import RunFailureReason
+
         run = self.get_run_by_id(run_id)
         if run.status == DagsterRunStatus.FAILURE and self.run_retries_enabled:
             max_retries = (
