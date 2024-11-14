@@ -22,7 +22,7 @@ Asset definitions enable a declarative approach to data management, in which cod
 
 ## Building definitions object
 
-The definitions object [need docs reference] in Dagster serves as the central configuration point for defining and organizing various components within a Dagster Project. It acts as a container that holds all the necessary configurations for a code location, ensuring that everything is organized and easily accessible. 
+The [definitions](/api/definitions) object in Dagster serves as the central configuration point for defining and organizing various components within a Dagster Project. It acts as a container that holds all the necessary configurations for a code location, ensuring that everything is organized and easily accessible. 
 
 1. Creating Definitions object and duckdb resource
 
@@ -100,7 +100,6 @@ Do the same for sales_reps and sales_data. Now we have all our ingestion assets 
 
 - Created a Dagster Definition
 - Built our ingestion assets
-
 
 ## Next steps
 

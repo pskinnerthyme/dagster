@@ -36,7 +36,7 @@ Data Quality is critical in analytics. Just like in a factory producing cars, ma
 <CodeExample filePath="guides/tutorials/etl_tutorial/etl_tutorial/definitions.py" language="python" lineStart="134" lineEnd="149"/>
 
 
-## Materialize the assets
+## Materialize the Assets
 
 We need to add the asset and asset check we just made to the definitions object. 
 

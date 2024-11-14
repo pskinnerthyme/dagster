@@ -10,7 +10,6 @@ last_update:
 
 Welcome to this hands-on tutorial where you'll learn how to build an ETL pipeline with Dagster while exploring key parts of Dagster.
 
-
 ## What you'll learn
 
 - Setting up a Dagster project with the recommended project structure
@@ -52,7 +51,6 @@ First, set up a new Dagster project.
 Next we will get the raw data for the project. As well as the project scaffold, Dagster has several pre-built scaffolds you can install depending on your use case. You can see the full up to date list by running. `dagster project list-examples`
 
 Use the project scaffold command for this project. 
-
    ```bash title="ETL Project Scaffold"
       dagster project from-example --example getting_started_etl_tutorial
    ```
@@ -78,9 +76,7 @@ dagster-etl-tutorial/
 
 In the root directory there are three configuration files that are common in Python package management. These manage dependencies and identifies the Dagster modules in the project. The etl_tutorial folder is where our Dagster definition for this code location exists. The data directory is where the raw data for the project is stored and we will reference these files in our software-defined assets. 
 
-
 ### File/Directory Descriptions
-
 
 #### Dagster files
 
@@ -95,8 +91,6 @@ In the root directory there are three configuration files that are common in Pyt
 - **setup.cfg**: This file is used for configuration of your Python package. It can include metadata about the package, dependencies, and other configuration options.
 
 - **setup.py**: This script is used to build and distribute your Python package. It is a standard file in Python projects for specifying package details.
-
-
 
 ## What you've learned
 
