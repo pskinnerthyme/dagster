@@ -2492,7 +2492,7 @@ class DagsterInstance(DynamicPartitionsStore):
             for sub in self._subscribers[run_id]:
                 sub(event)
 
-        self.add_run_tags(run_id, {WILL_RETRY_TAG: self._should_retry_run(run_id)})
+        self.add_run_tags(run_id, {WILL_RETRY_TAG: str(self._should_retry_run(run_id)).lower()})
 
     def add_event_listener(self, run_id: str, cb) -> None:
         self._subscribers[run_id].append(cb)
