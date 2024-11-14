@@ -2399,18 +2399,17 @@ class DagsterInstance(DynamicPartitionsStore):
     def store_event(self, event: "EventLogEntry") -> None:
         self._event_storage.store_event(event)
 
-    def _should_retry_run(self, run_id: str) -> bool:
+    def _should_retry_run(self, run: DagsterRun) -> bool:
         from dagster._core.events import RunFailureReason
 
-        run = self.get_run_by_id(run_id)
-        if run and run.status == DagsterRunStatus.FAILURE and self.run_retries_enabled:
+        if run.status == DagsterRunStatus.FAILURE and self.run_retries_enabled:
             max_retries = (
                 int(run.tags[MAX_RETRIES_TAG])
                 if run.tags.get(MAX_RETRIES_TAG) is not None
                 else self.run_retries_max_retries
             )
             if max_retries > 0:
-                run_group = self.get_run_group(run_id)
+                run_group = self.get_run_group(run.run_id)
                 if run_group is not None:
                     _, run_group_iter = run_group
                     if len(list(run_group_iter)) < max_retries:
@@ -2452,6 +2451,8 @@ class DagsterInstance(DynamicPartitionsStore):
             event (EventLogEntry): The event to handle.
             batch_metadata (Optional[DagsterEventBatchMetadata]): Metadata for batch writing.
         """
+        from dagster._core.events import DagsterEventType
+
         if batch_metadata is None or not _is_batch_writing_enabled():
             events = [event]
         else:
@@ -2492,7 +2493,11 @@ class DagsterInstance(DynamicPartitionsStore):
             for sub in self._subscribers[run_id]:
                 sub(event)
 
-        self.add_run_tags(run_id, {WILL_RETRY_TAG: str(self._should_retry_run(run_id)).lower()})
+            run = self.get_run_by_id(run_id)
+            if run and event.get_dagster_event().event_type == DagsterEventType.PIPELINE_FAILURE:
+                self.add_run_tags(
+                    run_id, {WILL_RETRY_TAG: str(self._should_retry_run(run)).lower()}
+                )
 
     def add_event_listener(self, run_id: str, cb) -> None:
         self._subscribers[run_id].append(cb)
