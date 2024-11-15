@@ -1238,7 +1238,7 @@ class AssetsDefinition(ResourceAddable, IHasInternalInit):
 
                 replace_dict["deps"] = new_deps
 
-            replaced_specs.append(spec._replace(**replace_dict))
+            replaced_specs.append(spec.replace_attributes(**replace_dict))
 
         for attr_name, conflicting_asset_keys in conflicts_by_attr_name.items():
             raise DagsterInvalidDefinitionError(

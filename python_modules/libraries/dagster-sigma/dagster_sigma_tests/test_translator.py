@@ -80,7 +80,7 @@ def test_dataset_translation_custom_translator() -> None:
         def get_asset_spec(self, data: SigmaDataset) -> AssetSpec:
             spec = super().get_asset_spec(data)
             if isinstance(data, SigmaDataset):
-                return spec._replace(description="Custom description")
+                return spec.replace_attributes(description="Custom description")
             return spec
 
     sample_dataset = SigmaDataset(

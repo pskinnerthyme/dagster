@@ -20,11 +20,13 @@ class CustomDagsterLookerApiTranslator(DagsterLookerApiTranslator):
         asset_spec = super().get_asset_spec(looker_structure)
 
         # Add a team owner tag for all Looker assets
-        asset_spec = asset_spec._replace(owners=["team:my_team"])
+        asset_spec = asset_spec.replace_attributes(owners=["team:my_team"])
 
         # For only Looker dashboard, prefix the asset key with "looker" for organizational purposes
         if looker_structure.structure_type == LookerStructureType.DASHBOARD:
-            asset_spec = asset_spec._replace(key=asset_spec.key.with_prefix("looker"))
+            asset_spec = asset_spec.replace_attributes(
+                key=asset_spec.key.with_prefix("looker")
+            )
 
         return asset_spec
 
