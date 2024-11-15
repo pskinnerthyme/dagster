@@ -904,7 +904,7 @@ class FivetranWorkspace(ConfigurableResource):
         )
 
     def __hash__(self):
-        return hash(self.account_id + self.api_key + self.api_secret)
+        return hash((self.account_id + self.api_key + self.api_secret))
 
 
 @lru_cache(maxsize=None)
