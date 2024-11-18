@@ -2490,14 +2490,13 @@ class DagsterInstance(DynamicPartitionsStore):
                 and event.get_dagster_event().is_job_event
             ):
                 self._run_storage.handle_run_event(run_id, event.get_dagster_event())
+                run = self.get_run_by_id(run_id)
+                if run and event.get_dagster_event().event_type == DagsterEventType.RUN_FAILURE:
+                    self.add_run_tags(
+                        run_id, {WILL_RETRY_TAG: str(self._should_retry_run(run)).lower()}
+                    )
             for sub in self._subscribers[run_id]:
                 sub(event)
-
-            run = self.get_run_by_id(run_id)
-            if run and event.get_dagster_event().event_type == DagsterEventType.PIPELINE_FAILURE:
-                self.add_run_tags(
-                    run_id, {WILL_RETRY_TAG: str(self._should_retry_run(run)).lower()}
-                )
 
     def add_event_listener(self, run_id: str, cb) -> None:
         self._subscribers[run_id].append(cb)
